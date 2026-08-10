@@ -1,0 +1,20 @@
+services:
+  backend:
+    build: ./backend
+    # Not published to the host: the frontend reaches it over the internal
+    # compose network, and nginx is the only public entrypoint.
+    expose:
+      - "8000"
+    env_file: .env
+    volumes:
+      # Persist the trained ranker so it survives a rebuild, and so the
+      # retrain script and the API share one file.
+      - ./models:/app/models
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      backend:
+        condition: service_healthy

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Resume-JD Matcher</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Shown while logged out -->
+<div id="auth-view" class="auth-wrap">
+  <div class="card auth-card">
+    <h1>Resume&ndash;JD Matcher</h1>
+    <p class="muted">Score a resume against a job description, and see why.</p>
+
+    <div class="tabs" role="tablist">
+      <button class="tab active" data-auth-tab="login" role="tab">Log in</button>
+      <button class="tab" data-auth-tab="signup" role="tab">Sign up</button>
+    </div>
+
+    <form id="login-form" class="auth-form">
+      <label for="login-email">Email</label>
+      <input id="login-email" type="email" required autocomplete="email">
+
+      <label for="login-password">Password</label>
+      <input id="login-password" type="password" required autocomplete="current-password">
+
+      <button class="btn primary" type="submit">Log in</button>
+    </form>
+
+    <form id="signup-form" class="auth-form hidden">
+      <label for="signup-email">Email</label>
+      <input id="signup-email" type="email" required autocomplete="email">
+
+      <label for="signup-password">Password</label>
+      <input id="signup-password" type="password" required minlength="8"
+             autocomplete="new-password">
+      <small class="muted">At least 8 characters.</small>
+
+      <button class="btn primary" type="submit">Create account</button>
+    </form>
+  </div>
+</div>
+
+<!-- Shown once authenticated -->
+<div id="app-view" class="hidden">
+  <header class="topbar">
+    <strong>Resume&ndash;JD Matcher</strong>
+    <div class="topbar-right">
+      <span id="user-email" class="muted"></span>
+      <button id="logout-btn" class="btn ghost">Log out</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="tabs" role="tablist">
+      <button class="tab active" data-tab="upload" role="tab">1. Upload</button>
+      <button class="tab" data-tab="match" role="tab">2. Match</button>
+      <button class="tab" data-tab="history" role="tab">3. History</button>
+    </div>
+
+    <!-- Upload -->
+    <section id="tab-upload" class="tab-panel">
+      <div class="card">
+        <h2>Resume</h2>
+        <input id="resume-file" type="file" accept=".pdf,.docx,.txt">
+        <button id="upload-resume-btn" class="btn primary">Upload resume</button>
+      </div>
+
+      <div class="card">
+        <h2>Job description</h2>
+        <textarea id="jd-text" rows="8"
+                  placeholder="Paste the job description here..."></textarea>
+        <p class="muted small">...or upload a file instead:</p>
+        <input id="jd-file" type="file" accept=".pdf,.docx,.txt">
+        <button id="upload-jd-btn" class="btn primary">Save job description</button>
+      </div>
+    </section>
+
+    <!-- Match -->
+    <section id="tab-match" class="tab-panel hidden">
+      <div class="card">
+        <label for="resume-select">Resume</label>
+        <select id="resume-select"></select>
+
+        <label for="jd-select">Job description</label>
+        <select id="jd-select"></select>
+
+        <button id="run-match-btn" class="btn primary">Run match</button>
+      </div>
+
+      <div id="match-result" class="hidden"></div>
+    </section>
+
+    <!-- History -->
+    <section id="tab-history" class="tab-panel hidden">
+      <div id="history-list" class="card">
+        <p class="muted">Loading...</p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="api.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
