@@ -1,5 +1,3 @@
-"""Create and read matches."""
-
 from datetime import datetime, timezone
 
 from bson import ObjectId
@@ -39,9 +37,6 @@ def _as_match_out(doc: dict) -> MatchOut:
 
 @router.post("", response_model=MatchOut, status_code=201)
 async def create_match(body: MatchRequest, user: dict = Depends(current_user)):
-    # user_id in the filter, not checked after the fetch -- a document
-    # belonging to someone else simply doesn't exist as far as this query is
-    # concerned, so there's no path where we read it and forget to compare.
     resume = await resumes().find_one(
         {"_id": _object_id(body.resume_id, "resume id"), "user_id": user["_id"]}
     )
@@ -70,8 +65,6 @@ async def create_match(body: MatchRequest, user: dict = Depends(current_user)):
         "cosine_score": round(cosine_score, 4),
         "cross_encoder_score": round(cross_score, 4),
         "final_score": final_score,
-        # Stored so the retraining script can rebuild this exact training row
-        # later, even if the feature code changes in the meantime.
         "features": features,
         "scorer": scorer,
         "explanation_text": explanation,

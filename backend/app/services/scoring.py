@@ -15,8 +15,7 @@ FEATURE_ORDER = [
 
 DEFAULT_WEIGHTS = {
     "cosine_score": 0.25,
-    "cross_encoder_score": 0.45,  # highest: it reads both documents together
-    "keyword_overlap": 0.15,
+    "cross_encoder_score": 0.45,  
     "years_match": 0.10,
     "education_match": 0.05,
 }
@@ -26,11 +25,6 @@ _ranker_mtime: float | None = None
 
 
 def load_ranker():
-    """Load the trained ranker if it exists, reloading when the file changes.
-
-    The mtime check means retraining takes effect without an API restart --
-    handy since the retrain script runs as a separate process.
-    """
     global _ranker, _ranker_mtime
 
     path = Path(settings.ranker_path)

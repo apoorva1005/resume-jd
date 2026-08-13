@@ -1,8 +1,3 @@
-"""Upload and list resumes / JDs.
-
-Note the user_id filter on every read. MongoDB has no row-level security, so
-tenant isolation lives here in application code -- see the README.
-"""
 
 from datetime import datetime, timezone
 
@@ -30,8 +25,7 @@ def _as_document_out(doc: dict, kind: str) -> DocumentOut:
 
 
 async def _store_file(upload: UploadFile, user_id: ObjectId) -> tuple[ObjectId, str]:
-    """Save to GridFS, return (file_id, extracted text)."""
-    data = await upload.read()
+   data = await upload.read()
     if not data:
         raise HTTPException(400, "Uploaded file is empty.")
     if len(data) > MAX_UPLOAD_BYTES:
@@ -78,8 +72,7 @@ async def upload_jd(
     text: str = Form(default=""),
     user: dict = Depends(current_user),
 ):
-    """A JD can be pasted as text or uploaded as a file."""
-    if file is not None and file.filename:
+   if file is not None and file.filename:
         file_id, parsed = await _store_file(file, user["_id"])
     elif text.strip():
         file_id, parsed = None, clean_text(text)

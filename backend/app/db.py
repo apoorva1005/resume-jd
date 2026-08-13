@@ -42,7 +42,7 @@ def matches():
 def feedback():
     return get_db()["feedback"]
 
-
+#1 ascendin
 async def ensure_indexes() -> None:
     await users().create_index("email", unique=True)
     await resumes().create_index([("user_id", 1), ("created_at", -1)])

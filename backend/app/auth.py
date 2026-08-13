@@ -38,9 +38,7 @@ def create_access_token(user_id: str) -> str:
 
 
 async def current_user(token: str = Depends(oauth2_scheme)) -> dict:
-    """Decode the bearer token and load the user. Every protected route
-    depends on this, and every query downstream filters on the returned _id."""
-    credentials_error = HTTPException(
+     credentials_error = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},

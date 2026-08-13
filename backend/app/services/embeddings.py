@@ -34,7 +34,7 @@ def cosine(a: list[float], b: list[float]) -> float:
 
 def cross_encode(resume_text: str, jd_text: str) -> float:
     raw = _cross_encoder().predict([(resume_text[:MAX_CHARS], jd_text[:MAX_CHARS])])
-    return float(1 / (1 + np.exp(-raw[0])))  # ms-marco outputs a raw logit
+    return float(1 / (1 + np.exp(-raw[0])))  
 
 
 def warm_up() -> None:
