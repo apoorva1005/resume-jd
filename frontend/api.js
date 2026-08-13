@@ -1,10 +1,6 @@
-/* HTTP client for the FastAPI backend.
- *
- * nginx proxies /api to the backend container, so the browser only ever talks
- * to its own origin -- no CORS preflight, and no hardcoded backend hostname.
- *
- * Every call returns { ok, data } so callers never touch status codes. */
-
+//this is IIFE (Immediately Invoked Function Expression)
+//It runs immediately and returns an object containing 
+// the functions user want the rest of your application to use.
 const API = (() => {
   const BASE = '/api';
 
@@ -13,28 +9,33 @@ const API = (() => {
   }
 
   function setToken(value) {
+    //for login save token for logout remove
     if (value) localStorage.setItem('token', value);
     else localStorage.removeItem('token');
   }
 
+  //converts backend errors into a readable message.
+ //payload is the response body from backend
+ //status is the http response code
   function readError(payload, status) {
     const detail = payload && payload.detail;
     if (typeof detail === 'string') return detail;
+   //multiple validation errors.-array
     if (Array.isArray(detail)) {
       return detail.map((d) => d.msg || JSON.stringify(d)).join('; ');
     }
     return `Request failed (${status})`;
   }
-
+  //reuest from frontend token is added data is prepared fetched from backend handlimg eroor or response and return the result 
   async function request(path, { method = 'GET', body, auth = true } = {}) {
     const headers = {};
+    //already logged in add token to headers
     if (auth && token()) headers.Authorization = `Bearer ${token()}`;
-    // Let the browser set Content-Type for FormData -- it has to add the
-    // multipart boundary, and setting it by hand breaks the upload.
+    //Is the body a normal JavaScript object
     if (body && !(body instanceof FormData) && !(body instanceof URLSearchParams)) {
       headers['Content-Type'] = 'application/json';
     }
-
+//try to sending a reuquest from frontend to backend and catch any errors
     let response;
     try {
       response = await fetch(BASE + path, {
@@ -49,9 +50,6 @@ const API = (() => {
     } catch (err) {
       return { ok: false, data: `Could not reach the API: ${err.message}` };
     }
-
-    // 401 means the token expired or was tampered with; drop it so the UI
-    // falls back to the login screen instead of looping on failed calls.
     if (response.status === 401 && auth) {
       setToken(null);
       return { ok: false, data: 'Session expired. Please log in again.' };
@@ -61,7 +59,6 @@ const API = (() => {
     try {
       payload = await response.json();
     } catch {
-      /* 204 and empty bodies are fine. */
     }
 
     if (!response.ok) return { ok: false, data: readError(payload, response.status) };
@@ -75,8 +72,6 @@ const API = (() => {
 
     signup: (email, password) =>
       request('/auth/signup', { method: 'POST', body: { email, password }, auth: false }),
-
-    // The OAuth2 password flow wants form-encoded data with a "username" field.
     login: (email, password) =>
       request('/auth/login', {
         method: 'POST',

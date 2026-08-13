@@ -1,9 +1,6 @@
-/* UI logic: auth gate, tab switching, upload, match, feedback, history. */
 
 const $ = (id) => document.getElementById(id);
-
-/* ---------- small helpers ---------- */
-
+//small notification on screen for 4 seconds 
 let toastTimer;
 function toast(message, kind = '') {
   const el = $('toast');
@@ -13,9 +10,6 @@ function toast(message, kind = '') {
   toastTimer = setTimeout(() => el.classList.add('hidden'), 4000);
 }
 
-/* Everything from the API is untrusted -- the explanation text comes from an
-   LLM and the previews come from uploaded files. Escape before it touches
-   innerHTML. */
 function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text == null ? '' : String(text);
@@ -30,14 +24,12 @@ function scoreClass(score) {
   if (score >= 0.7) return 'score-good';
   return score >= 0.45 ? 'score-mid' : 'score-bad';
 }
-
+//display date in a human readable format
 function shortDate(iso) {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString();
 }
-
-/* Run an async action with the button disabled and a spinner in it, so a slow
-   match can't be fired twice. */
+//button that starts an operation that takes some time.
 async function withBusy(button, label, action) {
   const original = button.textContent;
   button.disabled = true;
@@ -49,10 +41,8 @@ async function withBusy(button, label, action) {
     button.textContent = original;
   }
 }
-
-/* The explanation comes back as light markdown from the LLM prompt. Handle
-   just the three things that prompt asks for -- bold, bullets, paragraphs --
-   rather than pulling in a markdown library. Input is escaped first. */
+//apoorvab
+//take text from the backend/LLM and convert it into HTML so it can be displayed nicely on webpage
 function renderMarkdown(text) {
   const safe = escapeHtml(text);
   const lines = safe.split('\n');
@@ -62,13 +52,15 @@ function renderMarkdown(text) {
   for (const raw of lines) {
     const line = raw.trim();
     if (!line) {
+      //end of list
       if (inList) { html.push('</ul>'); inList = false; }
       continue;
     }
     const bolded = line.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
     if (line.startsWith('- ') || line.startsWith('* ')) {
+      //start of list
       if (!inList) { html.push('<ul>'); inList = true; }
-      html.push(`<li>${bolded.slice(2)}</li>`);
+      html.push(`<li>${bolded.slice(2)}</li>`);//remove that -* in start
     } else {
       if (inList) { html.push('</ul>'); inList = false; }
       html.push(`<p>${bolded}</p>`);
@@ -77,9 +69,7 @@ function renderMarkdown(text) {
   if (inList) html.push('</ul>');
   return html.join('');
 }
-
-/* ---------- view switching ---------- */
-
+//adding the hidden CSS class, so the login/signup screen disappears.
 function showApp(email) {
   $('auth-view').classList.add('hidden');
   $('app-view').classList.remove('hidden');
@@ -91,7 +81,7 @@ function showAuth() {
   $('app-view').classList.add('hidden');
   $('auth-view').classList.remove('hidden');
 }
-
+//user clicks tabs, logs in, signs up, logs out, uploads a resume, or uploads a job description.
 function switchTab(name) {
   document.querySelectorAll('[data-tab]').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.tab === name);
@@ -102,8 +92,6 @@ function switchTab(name) {
   if (name === 'match') loadDocuments();
   if (name === 'history') loadHistory();
 }
-
-/* ---------- auth ---------- */
 
 document.querySelectorAll('[data-auth-tab]').forEach((btn) => {
   btn.addEventListener('click', () => {
@@ -143,8 +131,6 @@ document.querySelectorAll('[data-tab]').forEach((btn) => {
   btn.addEventListener('click', () => switchTab(btn.dataset.tab));
 });
 
-/* ---------- upload ---------- */
-
 $('upload-resume-btn').addEventListener('click', (event) => {
   const file = $('resume-file').files[0];
   if (!file) return toast('Choose a resume file first.', 'error');
@@ -174,8 +160,7 @@ $('upload-jd-btn').addEventListener('click', (event) => {
     loadDocuments();
   });
 });
-
-/* ---------- document pickers ---------- */
+//puts uploaded resumes and job descriptions into the dropdowns.
 
 function fillSelect(select, items) {
   if (!items.length) {
@@ -195,8 +180,6 @@ async function loadDocuments() {
   if (resumes.ok) fillSelect($('resume-select'), resumes.data);
   if (jds.ok) fillSelect($('jd-select'), jds.data);
 }
-
-/* ---------- match ---------- */
 
 $('run-match-btn').addEventListener('click', (event) => {
   const resumeId = $('resume-select').value;
@@ -276,8 +259,6 @@ function renderMatch(match) {
   wireFeedback(match.id);
 }
 
-/* ---------- feedback ---------- */
-
 function wireFeedback(matchId) {
   const slider = $('fb-slider');
   slider.addEventListener('input', () => {
@@ -300,8 +281,6 @@ function wireFeedback(matchId) {
     send(-1, Number(slider.value) / 100, $('fb-comment').value),
   );
 }
-
-/* ---------- history ---------- */
 
 async function loadHistory() {
   const list = $('history-list');
@@ -334,8 +313,6 @@ async function loadHistory() {
     )
     .join('');
 }
-
-/* ---------- boot ---------- */
 
 (async function start() {
   if (!API.isLoggedIn()) return showAuth();
