@@ -51,7 +51,6 @@ def _header_for(line: str) -> str | None:
 
 
 def split_sections(text: str) -> dict[str, str]:
-    """Split into {skills, experience, education, other}."""
     sections: dict[str, list[str]] = {}
     current = "other"
 
@@ -65,6 +64,6 @@ def split_sections(text: str) -> dict[str, str]:
     result = {
         name: clean_text("\n".join(lines)) for name, lines in sections.items() if lines
     }
-  for key in ("skills", "experience", "education"):
+    for key in ("skills", "experience", "education"):
         result.setdefault(key, "")
     return result

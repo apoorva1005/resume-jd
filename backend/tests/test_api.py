@@ -8,17 +8,18 @@ from fastapi.testclient import TestClient
 from mongomock_motor import AsyncMongoMockClient
 
 import app.db as db
+from app.config import settings
 
+settings.chroma_mode = "memory"
+settings.chroma_resume_collection = "test_resume_embeddings"
+settings.chroma_jd_collection = "test_jd_embeddings"
 
-# Use an in-memory MongoDB for the tests so they don't touch the real database.
 mock_client = AsyncMongoMockClient()
 db.get_client = lambda: mock_client
 db.get_db = lambda: mock_client["test_db"]
 
 
 class FakeBucket:
-    """Small GridFS replacement for tests."""
-
     def __init__(self):
         self.files = {}
 
@@ -55,6 +56,22 @@ JOB_DESCRIPTION = """Backend ML Engineer. We need Python, FastAPI, vector databa
 and 5+ years of experience. Bachelors degree required. Experience with RAG
 and retrieval systems strongly preferred."""
 
+# A deliberately unrelated resume, so vector search has something it should
+# rank *below* the ML one rather than just returning everything it holds.
+NURSE_RESUME = b"""Mary Jones
+Registered Nurse
+
+Skills
+Patient care, triage, phlebotomy, electronic health records
+
+Experience
+Staff nurse at County Hospital. 2 years on a general medical ward providing
+bedside care, medication administration and discharge planning.
+
+Education
+Bachelors of Nursing, City College
+"""
+
 
 TEST_EMAIL = "jane@example.com"
 TEST_PASSWORD = "hunter2hunter2"
@@ -87,8 +104,12 @@ def auth_header(token):
 
 def test_health_check(client):
     response = client.get("/health")
+    payload = response.json()
 
-    assert response.json() == {"status": "ok"}
+    assert payload["status"] == "ok"
+    vector_store = payload["vector_store"]
+    assert vector_store["mode"] == "memory"
+    assert vector_store["connected"] is True
 
 
 def test_duplicate_signup_is_rejected(client, token):
@@ -353,3 +374,196 @@ def test_invalid_uploads_are_rejected(client, token):
     )
 
     assert empty_jd.status_code == 400
+
+
+# --- Vector search -------------------------------------------------------
+# These run against a real in-memory Chroma (see settings.chroma_mode above),
+# so ranking and metadata filtering are actually executed rather than mocked.
+
+
+@pytest.fixture(scope="module")
+def indexed_documents(client, token):
+    nurse = client.post(
+        "/resumes",
+        headers=auth_header(token),
+        files={"file": ("nurse.txt", NURSE_RESUME, "text/plain")},
+    )
+    assert nurse.status_code == 201, nurse.text
+    assert nurse.json()["indexed"] is True, "upload did not reach Chroma"
+
+    resumes_list = client.get("/resumes", headers=auth_header(token)).json()
+    jds_list = client.get("/jds", headers=auth_header(token)).json()
+
+    ml_resume = next(r for r in resumes_list if "Jane Smith" in r["preview"])
+
+    return {
+        "ml_resume_id": ml_resume["id"],
+        "nurse_resume_id": nurse.json()["id"],
+        "jd_id": jds_list[0]["id"],
+    }
+
+
+def search_resumes(client, token, **body):
+    return client.post(
+        "/search/resumes", headers=auth_header(token), json=body
+    )
+
+
+def test_vector_stats_counts_only_your_own(client, token, indexed_documents):
+    stats = client.get("/search/stats", headers=auth_header(token)).json()
+
+    assert stats["mode"] == "memory"
+    assert stats["resume_vectors"] == 2  # Jane's ML resume + the nursing one
+    assert stats["jd_vectors"] == 1
+
+
+def test_listing_reports_index_state(client, token, indexed_documents):
+    """`indexed` comes back on the list path, not just the upload response."""
+    resumes_list = client.get("/resumes", headers=auth_header(token)).json()
+
+    assert resumes_list, "expected at least one resume"
+    assert all(doc["indexed"] is True for doc in resumes_list)
+
+
+def test_search_ranks_the_relevant_resume_first(client, token, indexed_documents):
+    """The ML resume should out-rank the nursing one against an ML job."""
+    response = search_resumes(
+        client, token, query_id=indexed_documents["jd_id"], k=5
+    )
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+
+    assert payload["searched_kind"] == "resume"
+    assert payload["query_kind"] == "jd"
+    assert payload["count"] == 2
+
+    hits = payload["hits"]
+    assert hits[0]["id"] == indexed_documents["ml_resume_id"]
+    # Ranked, not merely returned: strictly better, and the metadata came back.
+    assert hits[0]["similarity"] > hits[1]["similarity"]
+    assert 0.0 <= hits[1]["similarity"] <= 1.0
+    assert hits[0]["years_experience"] == 6
+    assert hits[0]["preview"]
+
+
+def test_search_accepts_raw_text_as_the_query(client, token, indexed_documents):
+    response = search_resumes(
+        client,
+        token,
+        query_text="Looking for a nurse to provide bedside patient care.",
+        k=2,
+    )
+
+    assert response.status_code == 200, response.text
+    hits = response.json()["hits"]
+
+    # Query embedded on the fly; the nursing resume should now come first.
+    assert hits[0]["id"] == indexed_documents["nurse_resume_id"]
+
+
+def test_metadata_filter_excludes_before_ranking(client, token, indexed_documents):
+    """min_years is a Chroma pre-filter, so k applies to what survives it."""
+    response = search_resumes(
+        client,
+        token,
+        query_id=indexed_documents["jd_id"],
+        k=5,
+        filters={"min_years": 5},
+    )
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+
+    # Jane claims 6 years, the nurse 2 -- so only one document is eligible.
+    assert payload["count"] == 1
+    assert payload["hits"][0]["id"] == indexed_documents["ml_resume_id"]
+
+    # The response says which conditions were applied, including the owner scope.
+    assert any("years_experience gte 5" in f for f in payload["filters_applied"])
+    assert any("user_id" in f for f in payload["filters_applied"])
+
+
+def test_degree_filter_uses_the_same_ranking_as_the_scorer(
+    client, token, indexed_documents
+):
+    """degree_rank 2 = masters; the nursing resume only reaches bachelors."""
+    masters_only = search_resumes(
+        client,
+        token,
+        query_id=indexed_documents["jd_id"],
+        filters={"min_degree_rank": 2},
+    ).json()
+
+    assert [h["id"] for h in masters_only["hits"]] == [
+        indexed_documents["ml_resume_id"]
+    ]
+
+    bachelors_up = search_resumes(
+        client,
+        token,
+        query_id=indexed_documents["jd_id"],
+        filters={"min_degree_rank": 1},
+    ).json()
+
+    assert bachelors_up["count"] == 2
+
+
+def test_document_filter_requires_a_literal_term(client, token, indexed_documents):
+    """must_contain is a where_document filter over the indexed text."""
+    response = search_resumes(
+        client,
+        token,
+        query_id=indexed_documents["jd_id"],
+        filters={"must_contain": "phlebotomy"},
+    )
+
+    payload = response.json()
+
+    # Only the nursing resume contains the word, even though the ML resume is
+    # the closer vector match -- the filter wins.
+    assert payload["count"] == 1
+    assert payload["hits"][0]["id"] == indexed_documents["nurse_resume_id"]
+
+
+def test_search_jds_runs_the_other_direction(client, token, indexed_documents):
+    response = client.post(
+        "/search/jds",
+        headers=auth_header(token),
+        json={"query_id": indexed_documents["ml_resume_id"], "k": 5},
+    )
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+
+    assert payload["searched_kind"] == "jd"
+    assert payload["query_kind"] == "resume"
+    assert [h["id"] for h in payload["hits"]] == [indexed_documents["jd_id"]]
+
+
+def test_search_is_isolated_between_users(client, token, indexed_documents):
+    bob = client.post(
+        "/auth/signup",
+        json={"email": "carol@example.com", "password": TEST_PASSWORD},
+    ).json()["access_token"]
+
+    # Bob's own view of the index is empty.
+    bob_stats = client.get("/search/stats", headers=auth_header(bob)).json()
+    assert bob_stats["resume_vectors"] == 0
+    assert bob_stats["jd_vectors"] == 0
+
+    # Text that matches Jane's resume closely still finds nothing for Bob.
+    bob_search = search_resumes(
+        client, bob, query_text="Senior ML engineer with Python and PyTorch.", k=10
+    )
+    assert bob_search.status_code == 200, bob_search.text
+    assert bob_search.json()["hits"] == []
+
+    # And he cannot use Jane's JD as the query vector.
+    stolen = search_resumes(client, bob, query_id=indexed_documents["jd_id"])
+    assert stolen.status_code == 404
+
+
+def test_search_rejects_a_query_with_no_input(client, token):
+    assert search_resumes(client, token).status_code == 400
+    assert search_resumes(client, token, query_id="not-an-object-id").status_code == 400

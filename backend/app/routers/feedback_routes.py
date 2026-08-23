@@ -29,7 +29,7 @@ async def submit_feedback(body: FeedbackRequest, user: dict = Depends(current_us
         "comment": body.comment[:1000],
         "created_at": datetime.now(timezone.utc),
     }
-   await feedback().replace_one(
+    await feedback().replace_one(
         {"match_id": match_oid, "user_id": user["_id"]}, doc, upsert=True
     )
     return {"status": "recorded"}

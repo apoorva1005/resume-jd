@@ -5,6 +5,7 @@ uvicorn[standard]>=0.32
 python-multipart>=0.0.18
 
 pymongo>=4.13          # includes AsyncMongoClient + async GridFS
+chromadb>=1.0          # vector index for resume/JD embeddings
 pydantic[email]>=2.9   # [email] pulls in email-validator, needed by EmailStr
 pydantic-settings>=2.6
 

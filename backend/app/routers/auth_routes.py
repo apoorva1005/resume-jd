@@ -33,8 +33,6 @@ async def signup(body: SignupRequest):
 
 @router.post("/login", response_model=TokenResponse)
 async def login(form: OAuth2PasswordRequestForm = Depends()):
-    # OAuth2PasswordRequestForm calls the field "username"; we put the email
-    # in it so the standard Swagger "Authorize" button works.
     user = await users().find_one({"email": form.username.lower()})
     if user is None or not verify_password(form.password, user["hashed_password"]):
         raise HTTPException(401, "Incorrect email or password.")

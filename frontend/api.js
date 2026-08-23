@@ -102,6 +102,14 @@ const API = (() => {
     listResumes: () => request('/resumes'),
     listJds: () => request('/jds'),
 
+    // Vector search over the Chroma collections. `filters` maps onto a Chroma
+    // metadata `where` clause server-side; omitted keys are simply not applied.
+    searchResumes: (body) =>
+      request('/search/resumes', { method: 'POST', body }),
+    searchJds: (body) =>
+      request('/search/jds', { method: 'POST', body }),
+    vectorStats: () => request('/search/stats'),
+
     createMatch: (resumeId, jdId) =>
       request('/matches', {
         method: 'POST',

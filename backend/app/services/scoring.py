@@ -15,10 +15,12 @@ FEATURE_ORDER = [
 
 DEFAULT_WEIGHTS = {
     "cosine_score": 0.25,
-    "cross_encoder_score": 0.45,  
+    "cross_encoder_score": 0.45,
+    "keyword_overlap": 0.15,
     "years_match": 0.10,
     "education_match": 0.05,
 }
+assert set(DEFAULT_WEIGHTS) == set(FEATURE_ORDER), "weights must cover every feature"
 
 _ranker = None
 _ranker_mtime: float | None = None
@@ -61,7 +63,7 @@ def score_pair(
 
     row = [[values[name] for name in FEATURE_ORDER]]
     try:
-       final = float(ranker.predict_proba(row)[0][1])
+        final = float(ranker.predict_proba(row)[0][1])
     except Exception:
         return round(weighted_score(values), 4), values, "weighted_sum"
 

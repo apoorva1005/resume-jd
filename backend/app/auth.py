@@ -1,7 +1,7 @@
 #authentication and authorization 
 from datetime import datetime, timedelta, timezone
 
-import bcrypt
+import bcrypt #for verifying passwords
 from bson import ObjectId
 from bson.errors import InvalidId
 from fastapi import Depends, HTTPException, status
@@ -15,8 +15,6 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 
 def hash_password(password: str) -> str:
-    # bcrypt silently truncates at 72 bytes, so reject longer input rather
-    # than let two different passwords hash the same.
     if len(password.encode()) > 72:
         raise HTTPException(400, "Password must be at most 72 bytes.")
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
@@ -38,7 +36,7 @@ def create_access_token(user_id: str) -> str:
 
 
 async def current_user(token: str = Depends(oauth2_scheme)) -> dict:
-     credentials_error = HTTPException(
+    credentials_error = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},

@@ -20,7 +20,7 @@ def chunk_text(text: str, max_chars: int = 400) -> list[str]:
         chunks.append(current)
 
     keep = [c for c in chunks if len(c) >= CHUNK_MIN_CHARS]
-     return keep or chunks
+    return keep or chunks
 
 
 def top_chunks(resume_text: str, jd_text: str, k: int = 4) -> list[str]:

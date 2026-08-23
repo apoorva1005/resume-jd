@@ -1,4 +1,5 @@
-#Keeping all application settings in one place, and automatically load them from .env when available
+#Keeping all application settings in one place
+#automatically load them from .env when available
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -20,6 +21,19 @@ class Settings(BaseSettings):
     cross_encoder_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
     embedding_dim: int = 384
 
+    # Chroma is the vector index. Mongo stays the durable source of truth for
+    # documents and their vectors; Chroma is what answers similarity queries.
+    #   memory     -> in-process, nothing on disk (tests)
+    #   persistent -> local directory, no server needed (non-Docker dev)
+    #   http       -> a Chroma server (docker compose sets this)
+    chroma_mode: str = "persistent"
+    chroma_path: str = "./chroma_data"
+    chroma_host: str = "chroma"
+    chroma_port: int = 8000
+    chroma_ssl: bool = False
+    chroma_resume_collection: str = "resume_embeddings"
+    chroma_jd_collection: str = "jd_embeddings"
+
     groq_api_key: str = ""
     groq_model: str = "llama-3.1-8b-instant"
     gemini_api_key: str = ""
@@ -29,14 +43,3 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-
-
-#This file is a **configuration file** 
-#It uses Pydantic's `BaseSettings` to keep all important application settings in one place and automatically load them from a `.env` file.
-# The `Settings` class defines configuration for **MongoDB** (database connection and database name)
-#**JWT authentication** (secret key, algorithm, and token expiration), 
-#**embedding and reranking models** used for resume-job matching, 
-#**LLM APIs** such as Groq and Gemini, and the path to the locally trained ranking model.
-# `SettingsConfigDict` tells Pydantic to read the `.env` file using UTF-8 and ignore any extra environment variables that are not defined in the class.
-# Finally, `settings = Settings()` creates the actual configuration object, which can be imported anywhere in the application and accessed using values such as `settings.mongodb_uri`, `settings.jwt_secret`, or `settings.embedding_model`. This approach keeps configuration **centralized, reusable, secure, and easy to change between development and production environments**.
-

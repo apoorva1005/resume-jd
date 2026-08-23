@@ -49,6 +49,10 @@ async def ensure_indexes() -> None:
     await jds().create_index([("user_id", 1), ("created_at", -1)])
     await matches().create_index([("user_id", 1), ("created_at", -1)])
     await feedback().create_index("match_id")
+    # reindex_chroma.py scans for documents missing from the vector index
+    # ({"indexed": {"$ne": True}}), which is a collection scan without this.
+    await resumes().create_index("indexed")
+    await jds().create_index("indexed")
 
 
 async def close_client() -> None:

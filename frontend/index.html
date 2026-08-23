@@ -55,7 +55,8 @@
     <div class="tabs" role="tablist">
       <button class="tab active" data-tab="upload" role="tab">1. Upload</button>
       <button class="tab" data-tab="match" role="tab">2. Match</button>
-      <button class="tab" data-tab="history" role="tab">3. History</button>
+      <button class="tab" data-tab="search" role="tab">3. Search</button>
+      <button class="tab" data-tab="history" role="tab">4. History</button>
     </div>
 
     <!-- Upload -->
@@ -89,6 +90,75 @@
       </div>
 
       <div id="match-result" class="hidden"></div>
+    </section>
+
+    <!-- Search: vector similarity across everything uploaded, with the
+         metadata filters applied inside Chroma before ranking. -->
+    <section id="tab-search" class="tab-panel hidden">
+      <div class="card">
+        <h2>Find the best resumes for a job description</h2>
+        <p class="muted small">
+          Ranks every resume you've uploaded by embedding similarity. Unlike
+          <em>Match</em>, this searches the whole collection instead of scoring
+          one chosen pair.
+        </p>
+
+        <label for="search-jd-select">Job description</label>
+        <select id="search-jd-select"></select>
+
+        <label for="search-text">...or search with your own text instead</label>
+        <textarea id="search-text" rows="3"
+                  placeholder="Leave blank to use the job description above"></textarea>
+
+        <details>
+          <summary>Metadata filters</summary>
+          <p class="muted small">
+            Applied by Chroma <em>before</em> the vector search, so "top 5"
+            means the best five of the resumes that passed these filters.
+          </p>
+
+          <div class="filter-grid">
+            <div>
+              <label for="filter-years">Minimum years of experience</label>
+              <input id="filter-years" type="number" min="0" max="50"
+                     placeholder="any">
+            </div>
+
+            <div>
+              <label for="filter-degree">Minimum degree</label>
+              <select id="filter-degree">
+                <option value="">Any</option>
+                <option value="1">Bachelors or higher</option>
+                <option value="2">Masters or higher</option>
+                <option value="3">Doctorate</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="filter-source">Uploaded as</label>
+              <select id="filter-source">
+                <option value="">Either</option>
+                <option value="file">A file</option>
+                <option value="text">Pasted text</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="filter-k">Results</label>
+              <input id="filter-k" type="number" min="1" max="50" value="5">
+            </div>
+          </div>
+
+          <label for="filter-contains">Text must contain</label>
+          <input id="filter-contains" type="text"
+                 placeholder="e.g. Kubernetes -- a literal substring, not a synonym">
+        </details>
+
+        <button id="run-search-btn" class="btn primary">Search resumes</button>
+        <span id="vector-stats" class="muted small"></span>
+      </div>
+
+      <div id="search-result" class="hidden"></div>
     </section>
 
     <!-- History -->

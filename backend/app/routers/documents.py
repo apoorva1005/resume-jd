@@ -4,28 +4,65 @@ from datetime import datetime, timezone
 from bson import ObjectId
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
+from app import vectorstore
 from app.auth import current_user
 from app.db import get_bucket, jds, resumes
 from app.schemas import DocumentOut
 from app.services.embeddings import embed
 from app.services.parsing import clean_text, extract_text, split_sections
+from app.services.vector_search import (
+    PREVIEW_CHARS,
+    build_metadata,
+    indexed_document,
+)
 
 router = APIRouter(tags=["documents"])
 
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5MB; resumes are never bigger than this
 
 
-def _as_document_out(doc: dict, kind: str) -> DocumentOut:
+def _as_document_out(doc: dict, kind: str, indexed: bool | None = None) -> DocumentOut:
     return DocumentOut(
         id=str(doc["_id"]),
         kind=kind,
-        preview=doc["parsed_text"][:200],
+        preview=doc["parsed_text"][:PREVIEW_CHARS],
         created_at=doc["created_at"],
+        # On the list path `indexed` is read from the document. A document
+        # written before Chroma existed has no such field, and reporting it as
+        # indexed would hide exactly the case reindex_chroma.py exists to fix --
+        # so absent reads as False.
+        indexed=bool(doc.get("indexed", False)) if indexed is None else indexed,
+    )
+
+
+async def _index_vector(
+    kind: str, doc: dict, filename: str | None = None
+) -> bool:
+    """Mirror a freshly stored document into the Chroma collection for `kind`.
+
+    Mongo already has the document and its vector at this point, so a Chroma
+    failure is logged and reported rather than raised -- losing the upload over
+    an index hiccup would be the worse trade. `scripts/reindex_chroma.py`
+    backfills anything that didn't land.
+    """
+    return await vectorstore.try_upsert(
+        kind=kind,
+        doc_id=str(doc["_id"]),
+        embedding=doc["embedding"],
+        document=indexed_document(doc["parsed_text"]),
+        metadata=build_metadata(
+            kind=kind,
+            user_id=str(doc["user_id"]),
+            text=doc["parsed_text"],
+            created_at=doc["created_at"],
+            filename=filename,
+            sections=doc.get("sections"),
+        ),
     )
 
 
 async def _store_file(upload: UploadFile, user_id: ObjectId) -> tuple[ObjectId, str]:
-   data = await upload.read()
+    data = await upload.read()
     if not data:
         raise HTTPException(400, "Uploaded file is empty.")
     if len(data) > MAX_UPLOAD_BYTES:
@@ -56,6 +93,7 @@ async def upload_resume(
     doc = {
         "user_id": user["_id"],
         "file_id": file_id,
+        "filename": file.filename or "",
         "parsed_text": text,
         "sections": split_sections(text),
         "embedding": embed(text),
@@ -63,7 +101,10 @@ async def upload_resume(
     }
     result = await resumes().insert_one(doc)
     doc["_id"] = result.inserted_id
-    return _as_document_out(doc, "resume")
+
+    indexed = await _index_vector(vectorstore.RESUME, doc, doc["filename"])
+    await resumes().update_one({"_id": doc["_id"]}, {"$set": {"indexed": indexed}})
+    return _as_document_out(doc, "resume", indexed)
 
 
 @router.post("/jds", response_model=DocumentOut, status_code=201)
@@ -72,10 +113,11 @@ async def upload_jd(
     text: str = Form(default=""),
     user: dict = Depends(current_user),
 ):
-   if file is not None and file.filename:
+    if file is not None and file.filename:
         file_id, parsed = await _store_file(file, user["_id"])
+        filename = file.filename
     elif text.strip():
-        file_id, parsed = None, clean_text(text)
+        file_id, parsed, filename = None, clean_text(text), ""
     else:
         raise HTTPException(400, "Provide a JD file or paste the text.")
 
@@ -85,13 +127,17 @@ async def upload_jd(
     doc = {
         "user_id": user["_id"],
         "file_id": file_id,
+        "filename": filename,
         "parsed_text": parsed,
         "embedding": embed(parsed),
         "created_at": datetime.now(timezone.utc),
     }
     result = await jds().insert_one(doc)
     doc["_id"] = result.inserted_id
-    return _as_document_out(doc, "jd")
+
+    indexed = await _index_vector(vectorstore.JD, doc, filename)
+    await jds().update_one({"_id": doc["_id"]}, {"$set": {"indexed": indexed}})
+    return _as_document_out(doc, "jd", indexed)
 
 
 @router.get("/resumes", response_model=list[DocumentOut])

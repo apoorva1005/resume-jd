@@ -6,4 +6,5 @@ venv/
 .env
 models/
 *.joblib
+chroma_data/
 .DS_Store
