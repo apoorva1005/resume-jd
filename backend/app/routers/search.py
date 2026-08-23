@@ -63,9 +63,6 @@ async def _search(
 ) -> SearchResponse:
     user_id = user["_id"]
     embedding = await _query_vector(body, query_kind, user_id)
-
-    # user_id is folded in here, not checked afterwards: another tenant's
-    # document is never a candidate for the nearest-neighbour search at all.
     where = build_where(str(user_id), body.filters)
     where_document = build_where_document(body.filters)
 
@@ -111,7 +108,6 @@ def _as_hit(hit: vectorstore.VectorHit, kind: str) -> SearchHit:
 
 @router.post("/resumes", response_model=SearchResponse)
 async def search_resumes(body: SearchRequest, user: dict = Depends(current_user)):
-    """Rank your resumes against a JD (by id) or arbitrary text."""
     return await _search(
         body,
         searched_kind=vectorstore.RESUME,
@@ -122,7 +118,6 @@ async def search_resumes(body: SearchRequest, user: dict = Depends(current_user)
 
 @router.post("/jds", response_model=SearchResponse)
 async def search_jds(body: SearchRequest, user: dict = Depends(current_user)):
-    """Rank your job descriptions against a resume (by id) or arbitrary text."""
     return await _search(
         body,
         searched_kind=vectorstore.JD,

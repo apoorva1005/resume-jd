@@ -14,8 +14,6 @@ INDEX_NAME = "embedding_index"
 
 
 def get_index_definition() -> dict:
-    """Return the configuration used for MongoDB vector search."""
-
     return {
         "fields": [
             {
@@ -35,8 +33,6 @@ def get_index_definition() -> dict:
 
 
 async def create_index(collection_name: str) -> None:
-    """Create the vector search index for a collection if needed."""
-
     collection = get_db()[collection_name]
 
     indexes = [

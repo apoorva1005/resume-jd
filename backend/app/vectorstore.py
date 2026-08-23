@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import asyncio
 import logging
 from dataclasses import dataclass
@@ -10,13 +11,13 @@ from chromadb.api.models.Collection import Collection
 
 from app.config import settings
 
-log = logging.getLogger(__name__)
 
+log = logging.getLogger(__name__)
 RESUME = "resume"
 JD = "jd"
-
 _client: ClientAPI | None = None
 _collections: dict[str, Collection] = {}
+
 _unavailable_reason: str | None = None
 
 
@@ -33,14 +34,18 @@ def _build_client() -> ClientAPI:
 
     if mode == "memory":
         return chromadb.EphemeralClient()
+
     if mode == "http":
         return chromadb.HttpClient(
             host=settings.chroma_host,
             port=settings.chroma_port,
             ssl=settings.chroma_ssl,
         )
+
     if mode == "persistent":
-        return chromadb.PersistentClient(path=settings.chroma_path)
+        return chromadb.PersistentClient(
+            path=settings.chroma_path
+        )
 
     raise ValueError(
         f"Unknown CHROMA_MODE {settings.chroma_mode!r}. "
@@ -50,14 +55,17 @@ def _build_client() -> ClientAPI:
 
 def get_client() -> ClientAPI:
     global _client, _unavailable_reason
+
     if _client is None:
         _client = _build_client()
         _unavailable_reason = None
+
     return _client
 
 
 def reset_client() -> None:
     global _client, _unavailable_reason
+
     _client = None
     _unavailable_reason = None
     _collections.clear()
@@ -66,40 +74,44 @@ def reset_client() -> None:
 def collection_name(kind: str) -> str:
     if kind == RESUME:
         return settings.chroma_resume_collection
+
     if kind == JD:
         return settings.chroma_jd_collection
-    raise ValueError(f"kind must be {RESUME!r} or {JD!r}, got {kind!r}")
+
+    raise ValueError(
+        f"kind must be {RESUME!r} or {JD!r}, got {kind!r}"
+    )
 
 
 def _collection(kind: str) -> Collection:
-    cached = _collections.get(kind)
-    if cached is not None:
-        return cached
+    cached_collection = _collections.get(kind)
 
-    # embedding_function=None: vectors are always supplied by us, from the same
-    # SentenceTransformer the rest of the app uses. Letting Chroma default to
-    # its own ONNX model here would silently embed queries with a different
-    # model than the stored documents.
+    if cached_collection is not None:
+        return cached_collection
+
     collection = get_client().get_or_create_collection(
         name=collection_name(kind),
-        # Cosine, not the l2 default: the embeddings are normalised, so angle
-        # is the meaningful comparison and it maps cleanly onto the 0-1
-        # similarity the API reports.
         configuration={"hnsw": {"space": "cosine"}},
         embedding_function=None,
     )
+
     _collections[kind] = collection
+
     return collection
 
 
 async def _run(fn, *args, **kwargs):
     global _unavailable_reason
+
     try:
         result = await asyncio.to_thread(fn, *args, **kwargs)
-    except Exception as exc:  # chromadb raises a wide variety of these
+
+    except Exception as exc:
+        # Remember the error so the health endpoint can report it.
         _unavailable_reason = f"{type(exc).__name__}: {exc}"
         raise
     _unavailable_reason = None
+
     return result
 
 
@@ -110,7 +122,6 @@ async def upsert(
     document: str,
     metadata: dict[str, Any],
 ) -> None:
-
     def _work() -> None:
         _collection(kind).upsert(
             ids=[doc_id],
@@ -151,16 +162,35 @@ async def try_upsert(
     metadata: dict[str, Any],
 ) -> bool:
     try:
-        await upsert(kind, doc_id, embedding, document, metadata)
+        await upsert(
+            kind=kind,
+            doc_id=doc_id,
+            embedding=embedding,
+            document=document,
+            metadata=metadata,
+        )
         return True
+
     except Exception as exc:
-        log.warning("chroma upsert failed for %s %s: %s", kind, doc_id, exc)
+        log.warning(
+            "ChromaDB upsert failed for %s %s: %s",
+            kind,
+            doc_id,
+            exc,
+        )
         return False
 
 
-async def delete(kind: str, doc_id: str, user_id: str) -> None:
+async def delete(
+    kind: str,
+    doc_id: str,
+    user_id: str,
+) -> None:
     def _work() -> None:
-        _collection(kind).delete(ids=[doc_id], where={"user_id": user_id})
+        _collection(kind).delete(
+            ids=[doc_id],
+            where={"user_id": user_id},
+        )
 
     await _run(_work)
 
@@ -181,8 +211,9 @@ async def query(
             include=["metadatas", "documents", "distances"],
         )
 
-    result = await _run(_work)
-    return _to_hits(result)
+    query_result = await _run(_work)
+
+    return _to_hits(query_result)
 
 
 def _to_hits(result: dict[str, Any]) -> list[VectorHit]:
@@ -192,26 +223,53 @@ def _to_hits(result: dict[str, Any]) -> list[VectorHit]:
     metadatas = (result.get("metadatas") or [[]])[0]
 
     hits: list[VectorHit] = []
+
     for index, doc_id in enumerate(ids):
-        distance = distances[index] if index < len(distances) else None
+        distance = (
+            distances[index]
+            if index < len(distances)
+            else None
+        )
+
+        document = (
+            documents[index]
+            if index < len(documents)
+            else ""
+        )
+
+        metadata = (
+            dict(metadatas[index] or {})
+            if index < len(metadatas)
+            else {}
+        )
+
         hits.append(
             VectorHit(
                 id=str(doc_id),
                 similarity=_similarity(distance),
-                document=documents[index] if index < len(documents) else "",
-                metadata=dict(metadatas[index] or {}) if index < len(metadatas) else {},
+                document=document,
+                metadata=metadata,
             )
         )
+
     return hits
 
 
 def _similarity(distance: float | None) -> float:
     if distance is None:
         return 0.0
-    return round(max(0.0, min(1.0, 1.0 - float(distance))), 4)
+
+    similarity = 1.0 - float(distance)
+    similarity = max(0.0, min(1.0, similarity))
+
+    return round(similarity, 4)
 
 
-async def get_embedding(kind: str, doc_id: str, user_id: str) -> list[float] | None:
+async def get_embedding(
+    kind: str,
+    doc_id: str,
+    user_id: str,
+) -> list[float] | None:
     def _work():
         return _collection(kind).get(
             ids=[doc_id],
@@ -220,21 +278,37 @@ async def get_embedding(kind: str, doc_id: str, user_id: str) -> list[float] | N
         )
 
     result = await _run(_work)
+
     embeddings = result.get("embeddings")
-    if embeddings is None or len(embeddings) == 0:
+
+    if not embeddings:
         return None
-    # Chroma returns numpy arrays here; tolist() also covers a plain list.
-    first = embeddings[0]
-    return first.tolist() if hasattr(first, "tolist") else list(first)
+
+    # ChromaDB may return a NumPy array or a normal Python list.
+    first_embedding = embeddings[0]
+
+    if hasattr(first_embedding, "tolist"):
+        return first_embedding.tolist()
+
+    return list(first_embedding)
 
 
-async def count(kind: str, where: dict[str, Any] | None = None) -> int:
+async def count(
+    kind: str,
+    where: dict[str, Any] | None = None,
+) -> int:
     def _work() -> int:
         collection = _collection(kind)
+
         if not where:
             return collection.count()
-        # count() takes no filter, so ask for the matching ids instead.
-        return len((collection.get(where=where, include=[]) or {}).get("ids") or [])
+
+        matching_documents = collection.get(
+            where=where,
+            include=[],
+        )
+
+        return len(matching_documents.get("ids") or [])
 
     return await _run(_work)
 
@@ -247,11 +321,12 @@ async def ensure_collections() -> bool:
     try:
         await _run(_work)
         return True
+
     except Exception as exc:
         log.warning(
-            "chroma unavailable at startup (mode=%s): %s. "
-            "Uploads will still succeed; vector search will return 503 until "
-            "it comes back.",
+            "ChromaDB unavailable at startup (mode=%s): %s. "
+            "Uploads will still succeed; vector search will return "
+            "503 until ChromaDB becomes available again.",
             settings.chroma_mode,
             exc,
         )
@@ -266,11 +341,17 @@ async def health() -> dict[str, Any]:
             JD: settings.chroma_jd_collection,
         },
     }
+
     try:
         status["resume_vectors"] = await count(RESUME)
         status["jd_vectors"] = await count(JD)
         status["connected"] = True
+
     except Exception as exc:
         status["connected"] = False
-        status["error"] = _unavailable_reason or f"{type(exc).__name__}: {exc}"
+        status["error"] = (
+            _unavailable_reason
+            or f"{type(exc).__name__}: {exc}"
+        )
+
     return status

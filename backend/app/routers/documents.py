@@ -27,10 +27,6 @@ def _as_document_out(doc: dict, kind: str, indexed: bool | None = None) -> Docum
         kind=kind,
         preview=doc["parsed_text"][:PREVIEW_CHARS],
         created_at=doc["created_at"],
-        # On the list path `indexed` is read from the document. A document
-        # written before Chroma existed has no such field, and reporting it as
-        # indexed would hide exactly the case reindex_chroma.py exists to fix --
-        # so absent reads as False.
         indexed=bool(doc.get("indexed", False)) if indexed is None else indexed,
     )
 
@@ -38,13 +34,6 @@ def _as_document_out(doc: dict, kind: str, indexed: bool | None = None) -> Docum
 async def _index_vector(
     kind: str, doc: dict, filename: str | None = None
 ) -> bool:
-    """Mirror a freshly stored document into the Chroma collection for `kind`.
-
-    Mongo already has the document and its vector at this point, so a Chroma
-    failure is logged and reported rather than raised -- losing the upload over
-    an index hiccup would be the worse trade. `scripts/reindex_chroma.py`
-    backfills anything that didn't land.
-    """
     return await vectorstore.try_upsert(
         kind=kind,
         doc_id=str(doc["_id"]),

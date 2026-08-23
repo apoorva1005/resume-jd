@@ -20,12 +20,6 @@ class Settings(BaseSettings):
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     cross_encoder_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
     embedding_dim: int = 384
-
-    # Chroma is the vector index. Mongo stays the durable source of truth for
-    # documents and their vectors; Chroma is what answers similarity queries.
-    #   memory     -> in-process, nothing on disk (tests)
-    #   persistent -> local directory, no server needed (non-Docker dev)
-    #   http       -> a Chroma server (docker compose sets this)
     chroma_mode: str = "persistent"
     chroma_path: str = "./chroma_data"
     chroma_host: str = "chroma"

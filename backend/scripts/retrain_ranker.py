@@ -21,13 +21,6 @@ GOOD_SCORE_THRESHOLD = 0.6
 
 
 async def load_training_data() -> tuple[list[list[float]], list[int]]:
-    """
-    Build the training dataset from user feedback and match results.
-
-    A label of 1 means the match was considered good, while 0 means
-    it was considered bad. If a corrected score is available, use it
-    instead of the user's simple thumbs-up/thumbs-down rating.
-    """
     features = []
     labels = []
     skipped = 0
@@ -46,9 +39,6 @@ async def load_training_data() -> tuple[list[list[float]], list[int]]:
             "cross_encoder_score": match.get("cross_encoder_score"),
             **match.get("features", {}),
         }
-
-        # Ignore old matches that don't contain all the features
-        # required by the current ranking model.
         if any(values.get(name) is None for name in FEATURE_ORDER):
             skipped += 1
             continue
@@ -77,9 +67,6 @@ def train_model(
 ):
     X = np.array(features)
     y = np.array(labels)
-
-    # The features are on different scales, so standardise them
-    # before fitting the logistic regression model.
     model = make_pipeline(
         StandardScaler(),
         LogisticRegression(
@@ -88,9 +75,6 @@ def train_model(
             max_iter=1000,
         ),
     )
-
-    # Use up to five folds, but don't create more folds than
-    # the number of examples available for the smaller class.
     class_counts = np.bincount(y)
     folds = min(5, class_counts.min())
 
@@ -118,8 +102,6 @@ def train_model(
 
 
 def show_feature_weights(model) -> None:
-    """Print the learned importance of each ranking feature."""
-
     coefficients = model.named_steps["logisticregression"].coef_[0]
 
     print("\nLearned feature weights:")

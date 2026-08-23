@@ -1,16 +1,3 @@
-"""Vector search: what goes into Chroma's metadata, and what comes back out.
-
-Two halves:
-
-* `build_metadata` -- the filterable facts we attach to each vector at upload
-  time. Chroma metadata values must be flat scalars (str/int/float/bool), so
-  anything structured is flattened here rather than stored as a nested object.
-
-* `build_where` -- turns a caller's filters into a Chroma `where` clause with
-  `user_id` always ANDed in. Going through one builder is what makes the tenant
-  scope hard to forget, the same argument `db.py` makes for Mongo queries.
-"""
-
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -19,11 +6,6 @@ from typing import Any
 from app.services.features import extract_years, highest_degree
 
 PREVIEW_CHARS = 200
-
-# Chroma stores the full text alongside the vector, which is what makes
-# where_document substring filtering possible. Cap it so a long resume doesn't
-# bloat the index -- matching already happens on the vector, and the Mongo
-# document remains the complete copy.
 MAX_INDEXED_CHARS = 8000
 
 
@@ -35,21 +17,16 @@ def build_metadata(
     filename: str | None = None,
     sections: dict[str, str] | None = None,
 ) -> dict[str, Any]:
-    """Filterable metadata for one resume or JD vector."""
     sections = sections or {}
 
     metadata: dict[str, Any] = {
         "user_id": user_id,
         "kind": kind,
-        # ISO for display, epoch for range filters -- Chroma compares numbers,
-        # not dates, so a sortable string alone wouldn't support $gte.
-        "created_at": created_at.isoformat(),
+         "created_at": created_at.isoformat(),
         "created_ts": int(created_at.timestamp()),
         "source": "file" if filename else "text",
         "filename": filename or "",
         "char_count": len(text),
-        # Pulled from the same regex features the scorer uses, so a filter and
-        # a score never disagree about how many years a resume claims.
         "years_experience": extract_years(text),
         "degree_rank": highest_degree(text),
     }
@@ -66,11 +43,6 @@ def indexed_document(text: str) -> str:
 
 
 def build_where(user_id: str, filters: Any | None = None) -> dict[str, Any]:
-    """Chroma `where` clause: the owner scope, plus any caller filters.
-
-    A single-condition clause is returned bare (`{"user_id": ...}`); more than
-    one is wrapped in `$and`, which Chroma requires for multiple conditions.
-    """
     conditions: list[dict[str, Any]] = [{"user_id": {"$eq": user_id}}]
 
     if filters is not None:
@@ -102,11 +74,6 @@ def build_where(user_id: str, filters: Any | None = None) -> dict[str, Any]:
 
 
 def build_where_document(filters: Any | None = None) -> dict[str, Any] | None:
-    """Optional substring filter over the indexed text itself.
-
-    Distinct from metadata filtering: this searches the document body, so it
-    can require a literal term the embedding might have smoothed over.
-    """
     if filters is None:
         return None
     term = (getattr(filters, "must_contain", None) or "").strip()
@@ -116,11 +83,6 @@ def build_where_document(filters: Any | None = None) -> dict[str, Any] | None:
 
 
 def describe_filters(where: dict[str, Any]) -> list[str]:
-    """Flatten a where clause into readable lines for the API response.
-
-    Echoing back what was actually applied means a surprising result set can be
-    explained without turning on server logging.
-    """
     conditions = where.get("$and", [where])
     described: list[str] = []
     for condition in conditions:

@@ -12,9 +12,6 @@ from app.services.embeddings import warm_up
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await ensure_indexes()
-    # Creates the two Chroma collections if they're new. Returns False rather
-    # than raising when Chroma is unreachable: uploads and direct matching only
-    # need Mongo, so the app should still start and serve those.
     await vectorstore.ensure_collections()
     warm_up()  # download/load models now, not on the first user request
     yield
@@ -39,11 +36,4 @@ app.include_router(search.router)
 
 @app.get("/health")
 async def health():
-    """Liveness plus a vector-store status block.
-
-    Deliberately stays 200 when Chroma is down -- the container is healthy and
-    most of the API works; `vector_store.connected` is where that shows up. The
-    Docker healthcheck reads the status code, and taking the backend out of
-    rotation over an optional index would be the wrong call.
-    """
     return {"status": "ok", "vector_store": await vectorstore.health()}

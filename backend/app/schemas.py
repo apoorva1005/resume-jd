@@ -29,10 +29,6 @@ class DocumentOut(BaseModel):
     kind: str  # "resume" | "jd"
     preview: str
     created_at: datetime
-    # False when the vector isn't in Chroma -- either the upload couldn't reach
-    # it, or the document predates the vector index. Still in Mongo and still
-    # matchable; it just won't turn up in vector search until
-    # scripts/reindex_chroma.py runs.
     indexed: bool = False
 
 
@@ -60,33 +56,16 @@ class FeedbackRequest(BaseModel):
     comment: str = ""
 
 
-# --- Vector search -------------------------------------------------------
-# These describe Chroma queries. `MetadataFilters` maps onto a Chroma `where`
-# clause (plus `where_document` for must_contain); see
-# services/vector_search.py for the translation.
-
-
 class MetadataFilters(BaseModel):
-    """Pre-filters applied before the vector search, not after it."""
-
     min_years: int | None = Field(default=None, ge=0, le=50)
-    # Matches DEGREE_RANK in features.py: 1 bachelors, 2 masters, 3 doctorate.
     min_degree_rank: int | None = Field(default=None, ge=0, le=3)
     source: Literal["file", "text"] | None = None
     created_after: datetime | None = None
     has_skills_section: bool | None = None
-    # Substring the indexed text must contain -- a where_document filter, so it
-    # can insist on a literal term the embedding may have generalised away.
     must_contain: str | None = Field(default=None, max_length=200)
 
 
 class SearchRequest(BaseModel):
-    """Search one collection using the other side as the query.
-
-    Give either `query_id` (an existing document of the opposite kind, whose
-    stored vector is reused) or `query_text` (embedded on the fly).
-    """
-
     query_id: str | None = None
     query_text: str | None = Field(default=None, max_length=20000)
     k: int = Field(default=5, ge=1, le=50)
@@ -115,8 +94,6 @@ class SearchResponse(BaseModel):
 
 
 class VectorStatsResponse(BaseModel):
-    """Per-user counts, read straight out of Chroma with a metadata filter."""
-
     resume_vectors: int
     jd_vectors: int
     mode: str
