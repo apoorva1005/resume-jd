@@ -87,7 +87,6 @@ class SearchHit(BaseModel):
 class SearchResponse(BaseModel):
     hits: list[SearchHit]
     count: int
-    # Echo of the metadata conditions Chroma actually applied.
     filters_applied: list[str]
     query_kind: str
     searched_kind: str

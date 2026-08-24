@@ -1,14 +1,11 @@
-from __future__ import annotations
-
+from __future__ import annotations#handle type annotations more flexibly
 import asyncio
 import logging
-from dataclasses import dataclass
-from typing import Any
 
+from typing import Any
 import chromadb
 from chromadb.api import ClientAPI
 from chromadb.api.models.Collection import Collection
-
 from app.config import settings
 
 
@@ -20,15 +17,23 @@ _collections: dict[str, Collection] = {}
 
 _unavailable_reason: str | None = None
 
-
-@dataclass(frozen=True)
 class VectorHit:
-    id: str
-    similarity: float
-    document: str
-    metadata: dict[str, Any]
-
-
+    def __init__(
+        self,
+        id: str,
+        similarity: float,
+        document: str,
+        metadata: dict[str, Any],
+    ):
+        self.id = id
+        self.similarity = similarity
+        self.document = document
+        self.metadata = metadata
+#usually 3 modes of operation how chroma runs
+#1. memory: in-memory only, no persistence
+#2. http: connect to a remote ChromaDB instance
+#3. persistent: save data to a local directory
+#here we are using the persistent mode
 def _build_client() -> ClientAPI:
     mode = settings.chroma_mode.lower()
 
@@ -65,7 +70,6 @@ def get_client() -> ClientAPI:
 
 def reset_client() -> None:
     global _client, _unavailable_reason
-
     _client = None
     _unavailable_reason = None
     _collections.clear()
@@ -99,7 +103,9 @@ def _collection(kind: str) -> Collection:
 
     return collection
 
-
+#ChromaDB operations in this implementation are synchronous, 
+#so I use asyncio.to_thread() to execute them in a worker thread 
+#and avoid blocking FastAPI's async event loop
 async def _run(fn, *args, **kwargs):
     global _unavailable_reason
 
@@ -107,7 +113,6 @@ async def _run(fn, *args, **kwargs):
         result = await asyncio.to_thread(fn, *args, **kwargs)
 
     except Exception as exc:
-        # Remember the error so the health endpoint can report it.
         _unavailable_reason = f"{type(exc).__name__}: {exc}"
         raise
     _unavailable_reason = None

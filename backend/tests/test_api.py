@@ -210,9 +210,6 @@ def test_complete_matching_flow(client, token):
     }
 
     assert set(match["features"]) == expected_features
-
-    # The resume has six years of experience and an MS degree,
-    # so both requirements should be satisfied.
     assert match["features"]["years_match"] == 1.0
     assert match["features"]["education_match"] == 1.0
 
@@ -228,9 +225,6 @@ def test_complete_matching_flow(client, token):
     )
 
     assert feedback_response.status_code == 201
-
-    # Sending feedback again should update the existing record
-    # instead of creating another one.
     client.post(
         "/feedback",
         headers=auth_header(token),
@@ -258,9 +252,7 @@ def test_complete_matching_flow(client, token):
 
 
 def test_users_cannot_access_each_others_data(client, token):
-    """Make sure documents and matches are isolated between users."""
-
-    other_user_response = client.post(
+     other_user_response = client.post(
         "/auth/signup",
         json={
             "email": "bob@example.com",
