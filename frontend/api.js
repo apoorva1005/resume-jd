@@ -117,16 +117,5 @@ const API = (() => {
       }),
 
     listMatches: () => request('/matches'),
-
-    submitFeedback: (matchId, rating, corrected, comment) =>
-      request('/feedback', {
-        method: 'POST',
-        body: {
-          match_id: matchId,
-          user_rating: rating,
-          corrected_score: corrected,
-          comment: comment || '',
-        },
-      }),
   };
 })();

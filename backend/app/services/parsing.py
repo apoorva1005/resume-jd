@@ -43,7 +43,6 @@ def clean_text(text: str) -> str:
 
 
 def _header_for(line: str) -> str | None:
-    """Return the canonical section name if this line looks like a header."""
     stripped = line.strip().strip(":").strip()
     if not stripped or len(stripped.split()) > 4:
         return None

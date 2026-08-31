@@ -14,8 +14,6 @@ services:
       CHROMA_MODE: http
       CHROMA_HOST: chroma
       CHROMA_PORT: "8000"
-    volumes:
-      - ./models:/app/models
     depends_on:
       - chroma
 

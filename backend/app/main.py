@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import vectorstore
 from app.db import close_client, ensure_indexes
-from app.routers import auth_routes, documents, feedback_routes, match_routes, search
+from app.routers import auth_routes, documents, match_routes, search
 from app.services.embeddings import warm_up
 
 
@@ -30,7 +30,6 @@ app.add_middleware(
 app.include_router(auth_routes.router)
 app.include_router(documents.router)
 app.include_router(match_routes.router)
-app.include_router(feedback_routes.router)
 app.include_router(search.router)
 
 

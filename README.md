@@ -1,8 +1,7 @@
 # Resume–JD Matcher
 
 Upload a resume and a job description, get a match score with a written
-explanation of the strengths and gaps, then correct the score if it's wrong.
-The corrections train a re-ranker that sits on top of frozen embedding models.
+explanation of the strengths and gaps.
 
 Built as a portfolio project: the goal was a complete pipeline that runs
 end to end on free tiers, not a state-of-the-art matcher.
@@ -27,16 +26,11 @@ resume + JD
      +--> keyword overlap, years, education ..... regex features
      |
      v
-[ score ]         weighted sum, or a trained logistic regression once
-     |            enough feedback exists
+[ score ]         weighted sum of the five signals
+     |
      v
 [ explain ]       top-4 resume chunks by relevance -> LLM, grounded only
      |            in those chunks
-     v
-[ feedback ]      thumbs up/down or a corrected score
-     |
-     v
-[ retrain ]       scikit-learn on (5 features -> good/bad label)
 ```
 
 Alongside that pair-scoring path, Chroma answers the *many-candidates*
@@ -79,7 +73,7 @@ collapses that to 0.0. That gap is the whole argument for the second stage.
 MongoDB and Chroma hold the same 384-dim vectors, which looks like duplication
 until you ask which one you'd rebuild from. Mongo owns the document — the file
 in GridFS, the parsed text, the sections, the vector, the audit trail of
-matches and feedback. Chroma owns nothing: every vector in it is derived from a
+matches. Chroma owns nothing: every vector in it is derived from a
 Mongo document, which is what makes `scripts/reindex_chroma.py` possible and
 what makes it safe to delete `chroma_data/` or lose the container's volume.
 
@@ -111,16 +105,6 @@ and return `indexed: false`; direct matching still works; only the `/search`
 endpoints return 503. `reindex_chroma.py` backfills whatever was missed. That
 tradeoff is deliberate — losing an upload over an index hiccup would be worse
 than a temporarily stale index.
-
----
-
-### Why retrain only the ranker
-
-The embedding and cross-encoder models stay frozen; their outputs are two of
-five input features to a logistic regression. Fine-tuning a transformer needs
-thousands of labels and a GPU. Fitting five coefficients needs a few dozen
-labels and a laptop — which is the realistic amount of feedback a project like
-this collects.
 
 ---
 
@@ -206,25 +190,12 @@ cd backend && python scripts/dev_server.py
 Then open http://localhost:8080.
 </details>
 
-### 5. Retrain after collecting feedback
-
-```bash
-cd backend && python scripts/retrain_ranker.py
-```
-
-Writes `models/ranker.joblib`. The API watches the file's mtime and picks up a
-new model on the next match, no restart needed. Below 20 labelled examples the
-script refuses to train and the API keeps using the weighted sum.
-
-Running it on a schedule was a stretch goal and is not implemented — a cron
-entry or a GitHub Actions workflow on a weekly trigger would be the next step.
-
 ---
 
 ## Design decisions
 
 **Tenant isolation is enforced in application code.** MongoDB has no row-level
-security, so every query against `resumes`, `jds`, `matches` and `feedback`
+security, so every query against `resumes`, `jds`, and `matches`
 carries `user_id` in the filter — not as a check after the fetch. The
 distinction matters: a document belonging to someone else simply doesn't exist
 as far as the query is concerned, so there's no code path that reads a
@@ -256,12 +227,8 @@ worth showing; if you'd rather not maintain two, deleting it and its README step
 would break nothing.
 
 **The default weights are a prior, not a fitted result.** `DEFAULT_WEIGHTS` in
-`scoring.py` is a hand-picked starting point for the cold-start case, with the
-cross-encoder weighted highest because it's the strongest single signal. They
-were not tuned on labelled data — that's what the retraining step is for.
-
-**Feedback is one row per user per match.** Resubmitting updates rather than
-appends, so a user can't skew training by clicking the same button repeatedly.
+`scoring.py` is a hand-picked starting point, with the
+cross-encoder weighted highest because it's the strongest single signal.
 
 ---
 
@@ -326,8 +293,8 @@ Chroma (`chroma_mode = "memory"`). Chroma is *not* mocked — ranking and metada
 filtering are actually executed, which is the only way a test can catch a
 `where` clause that silently matches nothing.
 
-They cover auth rejection, duplicate signup, tenant isolation across all four
-Mongo collections, the full upload → match → feedback flow, upload validation,
+They cover auth rejection, duplicate signup, tenant isolation across
+Mongo collections, the full upload → match flow, upload validation,
 and for the vector path: that the relevant resume out-ranks an unrelated one,
 that ad-hoc text queries work, that each metadata filter excludes before
 ranking, that `must_contain` beats a closer vector match, that search runs in
@@ -374,11 +341,6 @@ approach:
 2. Report precision@k and Spearman correlation against the human labels for
    three scorers: cosine alone, cosine + cross-encoder, and the full weighted
    sum.
-3. After collecting real feedback, compare the trained ranker against the
-   weighted-sum baseline on a held-out split.
-
-The retraining script already prints a cross-validated ROC-AUC, which is the
-first half of step 3.
 
 ---
 
@@ -414,26 +376,25 @@ backend/
     auth.py         bcrypt + JWT + the current_user dependency
     schemas.py      request/response models
     main.py         app entry; warms models on startup
-    routers/        auth, documents, matches, feedback, search
+    routers/        auth, documents, matches, search
     services/
       parsing.py       file -> text -> sections
       embeddings.py    embed / cosine / cross_encode
       features.py      keyword overlap, years, education
-      scoring.py       weighted sum or trained ranker
+      scoring.py       weighted sum of the five signals
       retrieval.py     chunking + top-k selection for RAG
       vector_search.py Chroma metadata + where-clause builders
       explain.py       Groq -> Gemini -> template fallback
   scripts/
     create_vector_index.py
     reindex_chroma.py  rebuilds the Chroma index from Mongo
-    retrain_ranker.py
     dev_server.py     serves the frontend + proxies /api, for non-Docker dev
   tests/test_api.py
 frontend/
   index.html        markup
   style.css         plain CSS, no framework
   api.js            fetch wrapper, token handling
-  app.js            UI logic: tabs, upload, match, search, feedback, history
+  app.js            UI logic: tabs, upload, match, search, history
   nginx.conf        static serving + /api proxy
   test_render.js    node checks for the pure render helpers
 ```

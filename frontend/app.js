@@ -240,53 +240,9 @@ function renderMatch(match) {
       </details>
 
       <div class="explanation">${renderMarkdown(match.explanation_text)}</div>
-
-      <hr class="divider">
-
-      <h3>Was this score right?</h3>
-      <div class="btn-row">
-        <button class="btn" id="fb-up">Looks right</button>
-        <button class="btn" id="fb-down">Looks wrong</button>
-      </div>
-
-      <details>
-        <summary>Give a corrected score instead</summary>
-        <label for="fb-slider">What should it have been?</label>
-        <div class="slider-row">
-          <input id="fb-slider" type="range" min="0" max="100" step="5" value="50">
-          <span class="slider-value" id="fb-slider-value">50%</span>
-        </div>
-        <label for="fb-comment">Anything to add? (optional)</label>
-        <input id="fb-comment" type="text">
-        <button class="btn primary" id="fb-submit">Submit correction</button>
-      </details>
     </div>
   `;
   panel.classList.remove('hidden');
-  wireFeedback(match.id);
-}
-
-function wireFeedback(matchId) {
-  const slider = $('fb-slider');
-  slider.addEventListener('input', () => {
-    $('fb-slider-value').textContent = `${slider.value}%`;
-  });
-
-  const send = async (rating, corrected, comment) => {
-    const { ok, data } = await API.submitFeedback(matchId, rating, corrected, comment);
-    toast(
-      ok ? 'Thanks - this feeds the next retraining run.' : data,
-      ok ? 'success' : 'error',
-    );
-  };
-
-  $('fb-up').addEventListener('click', () => send(1, null, ''));
-  $('fb-down').addEventListener('click', () => send(-1, null, ''));
-
-  // A correction implies the original was wrong, hence rating -1.
-  $('fb-submit').addEventListener('click', () =>
-    send(-1, Number(slider.value) / 100, $('fb-comment').value),
-  );
 }
 
 // --- Vector search ------------------------------------------------------

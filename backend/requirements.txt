@@ -14,8 +14,6 @@ pdfplumber>=0.11
 docx2txt>=0.8 #.docx files
 
 sentence-transformers>=3.3 #text embeddings
-scikit-learn>=1.5
-joblib>=1.4 #save and load Python/ML models
 numpy>=1.26
 
 httpx>=0.27 #lets backend make requests to other APIs/services.

@@ -291,23 +291,6 @@ pre {
   border-top: 1px solid var(--border);
 }
 
-/* Feedback */
-.slider-row {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.slider-row input[type="range"] {
-  flex: 1;
-}
-
-.slider-value {
-  min-width: 3.5rem;
-  font-weight: 600;
-  text-align: right;
-}
-
 /* Search results */
 .filter-grid {
   display: grid;

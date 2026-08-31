@@ -213,36 +213,6 @@ def test_complete_matching_flow(client, token):
     assert match["features"]["years_match"] == 1.0
     assert match["features"]["education_match"] == 1.0
 
-    # Submit feedback for the match.
-    feedback_response = client.post(
-        "/feedback",
-        headers=auth_header(token),
-        json={
-            "match_id": match["id"],
-            "user_rating": 1,
-            "comment": "looks right",
-        },
-    )
-
-    assert feedback_response.status_code == 201
-    client.post(
-        "/feedback",
-        headers=auth_header(token),
-        json={
-            "match_id": match["id"],
-            "user_rating": -1,
-            "corrected_score": 0.4,
-        },
-    )
-
-    stored_feedback = client.get(
-        f"/feedback/{match['id']}",
-        headers=auth_header(token),
-    ).json()
-
-    assert stored_feedback["user_rating"] == -1
-    assert stored_feedback["corrected_score"] == 0.4
-
     matches_response = client.get(
         "/matches",
         headers=auth_header(token),
@@ -313,18 +283,6 @@ def test_users_cannot_access_each_others_data(client, token):
     )
 
     assert response.status_code == 404
-
-    # And Bob cannot submit feedback for Jane's match.
-    feedback_response = client.post(
-        "/feedback",
-        headers=auth_header(other_token),
-        json={
-            "match_id": jane_match_id,
-            "user_rating": 1,
-        },
-    )
-
-    assert feedback_response.status_code == 404
 
 
 def test_invalid_uploads_are_rejected(client, token):

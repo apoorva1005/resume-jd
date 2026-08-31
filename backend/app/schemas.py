@@ -1,6 +1,6 @@
 #Request/response models. Mongo documents are plain dicts
 #these only describe what crosses the HTTP boundary
-
+#entering and leaving your FastAPI API
 from datetime import datetime
 from typing import Literal
 
@@ -47,13 +47,6 @@ class MatchOut(BaseModel):
     features: dict
     explanation_text: str
     created_at: datetime
-
-
-class FeedbackRequest(BaseModel):
-    match_id: str
-    user_rating: int = Field(ge=-1, le=1)
-    corrected_score: float | None = Field(default=None, ge=0, le=1)
-    comment: str = ""
 
 
 class MetadataFilters(BaseModel):

@@ -1,3 +1,14 @@
+#In this application, it manages two types of vector data: resumes and job descriptions.
+# It first creates or connects to ChromaDB using one of three modes—memory, HTTP, or persistent local storage—
+# caches the client and collections so they can be reused. 
+#It provides functions to insert/update embeddings (upsert), insert multiple embeddings at once, delete vectors,
+# retrieve embeddings, count stored vectors, and most importantly perform similarity searches (query) using embeddings 
+#and cosine distance. Since ChromaDB operations are synchronous but FastAPI is asynchronous, 
+#the file uses asyncio.to_thread() so ChromaDB work runs in a separate thread without blocking FastAPI's event loop. 
+#It also converts ChromaDB's raw search results into a simpler VectorHit object containing the ID, similarity score, document, and metadata,
+# and provides health() and ensure_collections() functions to check whether ChromaDB is available
+
+
 from __future__ import annotations#handle type annotations more flexibly
 import asyncio
 import logging

@@ -14,7 +14,7 @@ def get_client() -> AsyncMongoClient:
         _client = AsyncMongoClient(settings.mongodb_uri)
     return _client
 #apoorva bellam
-#i created 5 collections in mongodb to store user data, resume data, jd data, matches data, and feedback data
+#users, resumes, jds, matches
 
 
 def get_db():
@@ -39,22 +39,19 @@ def jds():
 def matches():
     return get_db()["matches"]
 
-
-def feedback():
-    return get_db()["feedback"]
-
 #creates MongoDB indexes for faster queries
 async def ensure_indexes() -> None:
     await users().create_index("email", unique=True)
     #for 2 different types of queries
     #efficiently retrieves
     await resumes().create_index([("user_id", 1), ("created_at", -1)])
+    #1 means ascending
     #processed and added to the vector database
     await resumes().create_index("indexed")
+    #1.get user's resume -2.unprocessed resumes
     await jds().create_index([("user_id", 1), ("created_at", -1)])
-    await matches().create_index([("user_id", 1), ("created_at", -1)])
-    await feedback().create_index("match_id")
     await jds().create_index("indexed")
+    await matches().create_index([("user_id", 1), ("created_at", -1)])
 
 
 async def close_client() -> None:

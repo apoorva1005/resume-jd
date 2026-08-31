@@ -38,7 +38,7 @@ Order to create files when building Resume–JD Matcher from scratch, with one l
 | 14 | `backend/app/services/parsing.py` | Turns PDF/DOCX into plain text and rough resume sections |
 | 15 | `backend/app/services/embeddings.py` | Bi-encoder embed, cosine similarity, and cross-encoder score |
 | 16 | `backend/app/services/features.py` | Keyword overlap, years-of-experience, and education signals |
-| 17 | `backend/app/services/scoring.py` | Weighted sum of features, or trained logistic ranker if present |
+| 17 | `backend/app/services/scoring.py` | Weighted sum of the five match features |
 | 18 | `backend/app/services/vector_search.py` | Chroma metadata builder and `where`-clause builder |
 | 19 | `backend/app/services/retrieval.py` | Chunks the resume and picks top-k chunks for the explanation |
 | 20 | `backend/app/services/explain.py` | LLM explanation (Groq → Gemini) or keyword-gap template fallback |
@@ -52,7 +52,6 @@ Order to create files when building Resume–JD Matcher from scratch, with one l
 | 21 | `backend/app/routers/documents.py` | Upload/list resumes and JDs; parse, embed, store in Mongo + Chroma |
 | 22 | `backend/app/routers/match_routes.py` | Score a resume–JD pair and return the explanation |
 | 23 | `backend/app/routers/search.py` | Vector similarity search with metadata filtering, both directions |
-| 24 | `backend/app/routers/feedback_routes.py` | Save thumbs or a corrected score for a match |
 
 ---
 
@@ -60,10 +59,10 @@ Order to create files when building Resume–JD Matcher from scratch, with one l
 
 | # | File | What it does |
 |---|------|----------------|
-| 25 | `frontend/index.html` | Page markup: auth, upload, match, search, feedback, history |
-| 26 | `frontend/style.css` | Layout and styling (no CSS framework) |
-| 27 | `frontend/api.js` | Fetch wrapper to `/api`, JWT in localStorage |
-| 28 | `frontend/app.js` | UI logic: tabs, upload, match, search, feedback, history |
+| 24 | `frontend/index.html` | Page markup: auth, upload, match, search, history |
+| 25 | `frontend/style.css` | Layout and styling (no CSS framework) |
+| 26 | `frontend/api.js` | Fetch wrapper to `/api`, JWT in localStorage |
+| 27 | `frontend/app.js` | UI logic: tabs, upload, match, search, history |
 
 ---
 
@@ -71,17 +70,16 @@ Order to create files when building Resume–JD Matcher from scratch, with one l
 
 | # | File | What it does |
 |---|------|----------------|
-| 29 | `backend/scripts/dev_server.py` | Serves the frontend and proxies `/api` for non-Docker local run |
-| 30 | `backend/scripts/create_vector_index.py` | Creates the optional Atlas Vector Search index |
-| 31 | `backend/scripts/reindex_chroma.py` | Rebuilds the Chroma index from Mongo (backfill and repair) |
-| 32 | `backend/scripts/retrain_ranker.py` | Trains logistic regression from feedback into `ranker.joblib` |
-| 33 | `backend/tests/test_api.py` | API tests: auth, isolation, upload → match → feedback, vector search |
-| 34 | `frontend/test_render.js` | Checks HTML escaping and markdown render helpers |
-| 35 | `backend/Dockerfile` | Builds the backend image (includes ML models) |
-| 36 | `frontend/Dockerfile` | Builds the nginx image that serves static files |
-| 37 | `frontend/nginx.conf` | Serves the SPA and proxies `/api` to the backend |
-| 38 | `docker-compose.yml` | Runs frontend + backend + chroma together |
-| 39 | `README.md` | How it works, how to run, design notes |
+| 28 | `backend/scripts/dev_server.py` | Serves the frontend and proxies `/api` for non-Docker local run |
+| 29 | `backend/scripts/create_vector_index.py` | Creates the optional Atlas Vector Search index |
+| 30 | `backend/scripts/reindex_chroma.py` | Rebuilds the Chroma index from Mongo (backfill and repair) |
+| 31 | `backend/tests/test_api.py` | API tests: auth, isolation, upload → match, vector search |
+| 32 | `frontend/test_render.js` | Checks HTML escaping and markdown render helpers |
+| 33 | `backend/Dockerfile` | Builds the backend image (includes ML models) |
+| 34 | `frontend/Dockerfile` | Builds the nginx image that serves static files |
+| 35 | `frontend/nginx.conf` | Serves the SPA and proxies `/api` to the backend |
+| 36 | `docker-compose.yml` | Runs frontend + backend + chroma together |
+| 37 | `README.md` | How it works, how to run, design notes |
 
 ---
 
@@ -94,7 +92,7 @@ config → db, vectorstore → schemas
               ↓
  parsing → embeddings → features → scoring → vector_search → retrieval → explain
               ↓
-     documents → match_routes → search → feedback_routes
+     documents → match_routes → search
               ↓
      index.html → style.css → api.js → app.js
               ↓
