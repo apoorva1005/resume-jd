@@ -17,7 +17,6 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
-COPY scripts ./scripts
 
 # Bake the models into the image so the first request isn't a 200MB download.
 ENV HF_HOME=/app/.cache/huggingface

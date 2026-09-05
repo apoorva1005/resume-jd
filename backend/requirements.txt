@@ -3,7 +3,6 @@ uvicorn[standard]>=0.32 #server to run api
 python-multipart>=0.0.18 #accepts file uploads
 
 pymongo>=4.13          # python to talk with mongodb
-chromadb>=1.0          # vector index for resume/JD embeddings
 pydantic[email]>=2.9   # installs email-validator
 pydantic-settings>=2.6 #load configuration from your .env file
 

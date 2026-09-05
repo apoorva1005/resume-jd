@@ -1,21 +1,9 @@
 services:
-  chroma:
-    image: chromadb/chroma:1.5.9
-    expose:
-      - "8000"
-    volumes:
-      - chroma_data:/data
   backend:
     build: ./backend
     expose:
       - "8000"
     env_file: .env
-    environment:
-      CHROMA_MODE: http
-      CHROMA_HOST: chroma
-      CHROMA_PORT: "8000"
-    depends_on:
-      - chroma
 
   frontend:
     build: ./frontend
@@ -24,6 +12,3 @@ services:
     depends_on:
       backend:
         condition: service_healthy
-
-volumes:
-  chroma_data:

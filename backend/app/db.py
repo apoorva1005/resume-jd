@@ -1,20 +1,16 @@
-#This file is the database connection and MongoDB utility file 
+#This file is the database connection and MongoDB utility file
 from gridfs.asynchronous import AsyncGridFSBucket
-#GridFS is MongoDB's system for storing large files.
 from pymongo import AsyncMongoClient
-#Connecting your Python application to MongoDB.
 from app.config import settings
 
 _client: AsyncMongoClient | None = None
-#initially client is none
+
 
 def get_client() -> AsyncMongoClient:
     global _client
     if _client is None:
         _client = AsyncMongoClient(settings.mongodb_uri)
     return _client
-#apoorva bellam
-#users, resumes, jds, matches
 
 
 def get_db():
@@ -23,6 +19,7 @@ def get_db():
 
 def get_bucket() -> AsyncGridFSBucket:
     return AsyncGridFSBucket(get_db())
+
 
 def users():
     return get_db()["users"]
@@ -39,18 +36,11 @@ def jds():
 def matches():
     return get_db()["matches"]
 
-#creates MongoDB indexes for faster queries
+
 async def ensure_indexes() -> None:
     await users().create_index("email", unique=True)
-    #for 2 different types of queries
-    #efficiently retrieves
     await resumes().create_index([("user_id", 1), ("created_at", -1)])
-    #1 means ascending
-    #processed and added to the vector database
-    await resumes().create_index("indexed")
-    #1.get user's resume -2.unprocessed resumes
     await jds().create_index([("user_id", 1), ("created_at", -1)])
-    await jds().create_index("indexed")
     await matches().create_index([("user_id", 1), ("created_at", -1)])
 
 

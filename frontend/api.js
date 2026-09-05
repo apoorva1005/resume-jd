@@ -1,6 +1,3 @@
-//this is IIFE (Immediately Invoked Function Expression)
-//It runs immediately and returns an object containing 
-// the functions user want the rest of your application to use.
 const API = (() => {
   const BASE = '/api';
 
@@ -9,33 +6,26 @@ const API = (() => {
   }
 
   function setToken(value) {
-    //for login save token for logout remove
     if (value) localStorage.setItem('token', value);
     else localStorage.removeItem('token');
   }
 
-  //converts backend errors into a readable message.
- //payload is the response body from backend
- //status is the http response code
   function readError(payload, status) {
     const detail = payload && payload.detail;
     if (typeof detail === 'string') return detail;
-   //multiple validation errors.-array
     if (Array.isArray(detail)) {
       return detail.map((d) => d.msg || JSON.stringify(d)).join('; ');
     }
     return `Request failed (${status})`;
   }
-  //reuest from frontend token is added data is prepared fetched from backend handlimg eroor or response and return the result 
+
   async function request(path, { method = 'GET', body, auth = true } = {}) {
     const headers = {};
-    //already logged in add token to headers
     if (auth && token()) headers.Authorization = `Bearer ${token()}`;
-    //Is the body a normal JavaScript object
     if (body && !(body instanceof FormData) && !(body instanceof URLSearchParams)) {
       headers['Content-Type'] = 'application/json';
     }
-//try to sending a reuquest from frontend to backend and catch any errors
+
     let response;
     try {
       response = await fetch(BASE + path, {
@@ -101,14 +91,6 @@ const API = (() => {
 
     listResumes: () => request('/resumes'),
     listJds: () => request('/jds'),
-
-    // Vector search over the Chroma collections. `filters` maps onto a Chroma
-    // metadata `where` clause server-side; omitted keys are simply not applied.
-    searchResumes: (body) =>
-      request('/search/resumes', { method: 'POST', body }),
-    searchJds: (body) =>
-      request('/search/jds', { method: 'POST', body }),
-    vectorStats: () => request('/search/stats'),
 
     createMatch: (resumeId, jdId) =>
       request('/matches', {

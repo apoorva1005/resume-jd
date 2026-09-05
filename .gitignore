@@ -5,5 +5,4 @@ venv/
 .pytest_cache/
 .env
 models/
-chroma_data/
 .DS_Store

@@ -3,16 +3,14 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app import vectorstore
 from app.db import close_client, ensure_indexes
-from app.routers import auth_routes, documents, match_routes, search
+from app.routers import auth_routes, documents, match_routes
 from app.services.embeddings import warm_up
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await ensure_indexes()
-    await vectorstore.ensure_collections()
     warm_up()  # download/load models now, not on the first user request
     yield
     await close_client()
@@ -30,9 +28,8 @@ app.add_middleware(
 app.include_router(auth_routes.router)
 app.include_router(documents.router)
 app.include_router(match_routes.router)
-app.include_router(search.router)
 
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "vector_store": await vectorstore.health()}
+    return {"status": "ok"}

@@ -1,5 +1,5 @@
-#Keeping all application settings in one place
-#automatically load them from .env when available
+# Keeping all application settings in one place;
+# automatically load them from .env when available.
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -20,13 +20,6 @@ class Settings(BaseSettings):
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     cross_encoder_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
     embedding_dim: int = 384
-    chroma_mode: str = "persistent"
-    chroma_path: str = "./chroma_data"
-    chroma_host: str = "chroma"
-    chroma_port: int = 8000
-    chroma_ssl: bool = False
-    chroma_resume_collection: str = "resume_embeddings"
-    chroma_jd_collection: str = "jd_embeddings"
 
     groq_api_key: str = ""
     groq_model: str = "llama-3.1-8b-instant"

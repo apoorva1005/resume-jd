@@ -1,52 +1,26 @@
-
 from datetime import datetime, timezone
 
 from bson import ObjectId
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
-from app import vectorstore
 from app.auth import current_user
 from app.db import get_bucket, jds, resumes
 from app.schemas import DocumentOut
 from app.services.embeddings import embed
 from app.services.parsing import clean_text, extract_text, split_sections
-from app.services.vector_search import (
-    PREVIEW_CHARS,
-    build_metadata,
-    indexed_document,
-)
 
 router = APIRouter(tags=["documents"])
 
-MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5MB; resumes are never bigger than this
+MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5MB
+PREVIEW_CHARS = 200
 
 
-def _as_document_out(doc: dict, kind: str, indexed: bool | None = None) -> DocumentOut:
+def _as_document_out(doc: dict, kind: str) -> DocumentOut:
     return DocumentOut(
         id=str(doc["_id"]),
         kind=kind,
         preview=doc["parsed_text"][:PREVIEW_CHARS],
         created_at=doc["created_at"],
-        indexed=bool(doc.get("indexed", False)) if indexed is None else indexed,
-    )
-
-
-async def _index_vector(
-    kind: str, doc: dict, filename: str | None = None
-) -> bool:
-    return await vectorstore.try_upsert(
-        kind=kind,
-        doc_id=str(doc["_id"]),
-        embedding=doc["embedding"],
-        document=indexed_document(doc["parsed_text"]),
-        metadata=build_metadata(
-            kind=kind,
-            user_id=str(doc["user_id"]),
-            text=doc["parsed_text"],
-            created_at=doc["created_at"],
-            filename=filename,
-            sections=doc.get("sections"),
-        ),
     )
 
 
@@ -90,10 +64,7 @@ async def upload_resume(
     }
     result = await resumes().insert_one(doc)
     doc["_id"] = result.inserted_id
-
-    indexed = await _index_vector(vectorstore.RESUME, doc, doc["filename"])
-    await resumes().update_one({"_id": doc["_id"]}, {"$set": {"indexed": indexed}})
-    return _as_document_out(doc, "resume", indexed)
+    return _as_document_out(doc, "resume")
 
 
 @router.post("/jds", response_model=DocumentOut, status_code=201)
@@ -123,10 +94,7 @@ async def upload_jd(
     }
     result = await jds().insert_one(doc)
     doc["_id"] = result.inserted_id
-
-    indexed = await _index_vector(vectorstore.JD, doc, filename)
-    await jds().update_one({"_id": doc["_id"]}, {"$set": {"indexed": indexed}})
-    return _as_document_out(doc, "jd", indexed)
+    return _as_document_out(doc, "jd")
 
 
 @router.get("/resumes", response_model=list[DocumentOut])
