@@ -1,5 +1,5 @@
 const API = (() => {
-  const BASE = '/api';
+  const BASE = '';
 
   function token() {
     return localStorage.getItem('token');

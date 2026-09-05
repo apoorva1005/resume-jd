@@ -73,8 +73,8 @@ These weights are a hand-picked starting point, not a fitted model.
 | Auth | bcrypt passwords + JWT |
 | ML | sentence-transformers (CPU) |
 | Explanations | Groq → Gemini → keyword template |
-| Frontend | Plain HTML / CSS / JS (no framework) |
-| Run | Docker Compose (nginx + backend) |
+| Frontend | Plain HTML / CSS / JS, served by FastAPI |
+| Run | Docker Compose (single FastAPI container) |
 
 ---
 
@@ -107,10 +107,9 @@ docker compose up --build
 | | URL |
 |--|-----|
 | App | http://localhost:8080 |
-| API docs | http://localhost:8080/api/docs |
+| API docs | http://localhost:8080/docs |
 
-nginx serves the UI and proxies `/api` to the backend, so the browser talks to
-one origin.
+FastAPI serves both the API and the static frontend from one process.
 
 The first build downloads the ML models into the image (~a few minutes). Later
 starts are fast.
@@ -124,10 +123,12 @@ python -m venv .venv
 # Windows: .venv\Scripts\activate
 # macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
-uvicorn app.main:app --reload
+uvicorn app.main:app --reload --app-dir .
 ```
 
-Then serve the `frontend/` folder, or use the API at http://localhost:8000/docs.
+From the repo root (so `frontend/` resolves), or set the working directory
+such that `../frontend` exists next to `backend/`. Then open
+http://localhost:8000 — UI and `/docs` on the same server.
 </details>
 
 ---
@@ -136,7 +137,7 @@ Then serve the `frontend/` folder, or use the API at http://localhost:8000/docs.
 
 ```
 backend/app/
-  main.py          FastAPI entry; warms models on startup
+  main.py          FastAPI entry; serves UI + API; warms models on startup
   config.py        settings from .env
   db.py            Mongo client + collections
   auth.py          passwords, JWT, current_user

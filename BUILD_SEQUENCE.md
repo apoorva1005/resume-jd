@@ -25,7 +25,7 @@ Order to create files when building Resume–JD Matcher from scratch.
 | 8 | `backend/app/auth.py` | bcrypt + JWT + `current_user` |
 | 9 | `backend/app/routers/__init__.py` | Marks `routers` as a package |
 | 10 | `backend/app/routers/auth_routes.py` | Signup and login |
-| 11 | `backend/app/main.py` | FastAPI app, lifespan, routers, `/health` |
+| 11 | `backend/app/main.py` | FastAPI app, routers, static UI, `/health` |
 
 ---
 
@@ -68,11 +68,9 @@ Order to create files when building Resume–JD Matcher from scratch.
 | # | File | What it does |
 |---|------|----------------|
 | 25 | `backend/tests/test_api.py` | Auth, isolation, upload → match |
-| 26 | `backend/Dockerfile` | Backend image with ML models |
-| 27 | `frontend/Dockerfile` | nginx static image |
-| 28 | `frontend/nginx.conf` | Serve UI, proxy `/api` |
-| 29 | `docker-compose.yml` | Frontend + backend |
-| 30 | `README.md` | How it works and how to run |
+| 26 | `backend/Dockerfile` | Image with API, UI, and ML models |
+| 27 | `docker-compose.yml` | Single backend service on port 8080 |
+| 28 | `README.md` | How it works and how to run |
 
 ---
 
@@ -81,7 +79,7 @@ Order to create files when building Resume–JD Matcher from scratch.
 ```
 config → db → schemas
            ↓
-         auth → auth_routes → main
+         auth → auth_routes → main (+ StaticFiles)
            ↓
 parsing → embeddings → features → scoring → retrieval → explain
            ↓

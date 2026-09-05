@@ -1,11 +1,10 @@
 # Python 3.11 rather than 3.13: torch and sentence-transformers have the
 # widest wheel coverage here, so builds don't fall back to compiling.
+# Build context is the repo root (see docker-compose.yml).
 FROM python:3.11-slim
 
 WORKDIR /app
 
-# curl for the healthcheck below; nothing else is needed at runtime since we
-# install CPU-only wheels.
 RUN apt-get update && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
 
@@ -13,10 +12,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl \
 # and is ~2.5GB, which won't fit in a free-tier image.
 RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
 
-COPY requirements.txt .
+COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app ./app
+COPY backend/app ./app
+COPY frontend ./frontend
 
 # Bake the models into the image so the first request isn't a 200MB download.
 ENV HF_HOME=/app/.cache/huggingface

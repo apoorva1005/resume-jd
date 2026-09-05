@@ -1,0 +1,11 @@
+.git
+.venv
+**/__pycache__
+**/.pytest_cache
+**/.venv
+.env
+*.md
+backend/.venv
+backend/models
+backend/.pytest_cache
+**/chroma_data
